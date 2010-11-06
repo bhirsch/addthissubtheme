@@ -1,0 +1,134 @@
+<?php
+/**
+ * @file subtheme module form.
+ */
+
+/**
+ * Implementation of hook_form_alter().
+ */
+function addthissubtheme_form_alter(&$form, &$form_state, $form_id) {
+  if ($form_id == 'subtheme_form') {
+
+  // Don't forget to include enctype, otherwise uploads won't work!
+  $form['#attributes'] = array('enctype' => 'multipart/form-data');
+
+  // AddThis
+  $form['addthis'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('AddThis Settings'),
+    '#collapsible' => TRUE,
+    '#collapsed' => TRUE,
+  );
+  // Get the active AddThis image to display to the user
+  $image_filepath = variable_get('addthis_image', NULL);
+  // Prompt user to upload own graphic for main background here
+  $form['addthis']['addthis_upload'] = array(
+    '#type' => 'file',
+    '#title' => t('Upload AddThis Image'),
+    '#size' => 30,
+    '#element_validate' => array('addthissubtheme_save_file'),
+  );
+  // Display background image.
+  $form['addthis']['addthis_active'] = array(
+    '#type' => 'item',
+    '#title' => '<img src='. $image_filepath .' />',
+  );
+  $form['addthis']['addthis_image_width'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Button Image Width'),
+    '#description' => t('Width for button image. Example: 125 (for 125px)'),
+    '#default_value' => variable_get('addthis_image_width', NULL), 
+    '#element_validate' => array('addthissubtheme_save'),
+  );
+  $form['addthis']['addthis_image_height'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Button Image Height'),
+    '#description' => t('Height for button image. Example: 125 (for 125px)'),
+    '#default_value' => variable_get('addthis_image_height', NULL), 
+    '#element_validate' => array('addthissubtheme_save'),
+  );
+/*
+  $form['addthis']['subtheme_class--addthis-button----element--img_padding-top'] = array(
+    '#type' => 'hidden',
+    '#value' => variable_get('subtheme_class--addthis-button----element--img_padding-top', NULL), 
+  );
+  $form['addthis']['subtheme_class--addthis-button_width'] = array(
+    '#type' => 'hidden',
+    '#value' => variable_get('addthis_image_width', NULL),
+    '#element_validate' => array('addthissubtheme_css'),
+  );
+  $form['addthis']['subtheme_class--addthis-button_height'] = array(
+    '#type' => 'hidden',
+    '#value' => variable_get('addthis_image_height', NULL),
+    '#element_validate' => array('addthissubtheme_css'),
+  );
+*/
+  $form['addthis']['addthis_options'] = array(
+    '#type' => 'textarea',
+    '#title' => t('Options'),
+    '#description' => t('A comma-separated ordered list of !AddThis options to '
+       .'include in the drop-down. Example: favorites, email, digg, delicious, more '
+       .'Currently supported options: aim, aolfav, ask, backflip, ballhype, '
+       .'blinklist, blogmarks, bluedot, buzz, delicious, digg, diigo, email, '
+       .'facebook, favorites, fark, feedmelinks, friendfeed, furl, google, '
+       .'kaboodle, kirtsy, linkedin, live, magnolia, misterwong, mixx, multiply, '
+       .'myweb, myspace, netvous, newsvine, pownce, propeller, reddit, '
+       .'segnalo, sharedstuff, slashdot, spurl, stumbleupon, stylehive, '
+       .'tailrank, technorati, thisnext, twitter, yardbarker, yahoobkm, '
+       .'more, and others. The most up-to-date list can be found !here', 
+       array(
+         '!AddThis' => l('AddThis', 'http://addthis.com/'),
+         '!here' => l('here', 'http://addthis.com/customization.php')
+       )),
+    '#default_value' => variable_get('addthis_options', NULL), 
+    '#element_validate' => array('addthissubtheme_save'),
+  );
+
+  }
+}
+/**
+ * Handle saving (re-setting) AddThis variables.
+ */
+function addthissubtheme_save($form, &$form_state) {
+  // Get parent (the form element that called this function)
+  // Note: Parents have the same names as AddThis variable being re-set 
+  $parent = $form['#parents'][0];
+  $reset = $form_state['values'][$parent];
+  variable_set($parent, $reset);
+}
+
+/**
+ * Handle file uploads.
+ */
+function addthissubtheme_save_file($form, &$form_state) {
+
+  // Get parent (the form element that called this function)
+  $parent = $form['#parents'][0];
+  // Check for a new uploaded file, and use that if available.
+  if ($file = file_save_upload($parent)) {
+    // Get file extension.
+    $parts = pathinfo($file->filename);
+    $extension = $parts['extension'];
+    // Check for file subtheme file directories. Create if needed.
+    $directory = file_directory_path() .'/subtheme/';
+    file_check_directory($directory, FILE_CREATE_DIRECTORY);
+    // Name the file. Use consistent names and replace to prevent over-storage by user.
+    $file_path = file_directory_path() .'/subtheme/addthis.'. $extension;
+    // The image was saved using file_save_upload() and was added to the
+    // files table as a temporary file. We'll make a copy and let the garbage
+    // collector delete the original upload.
+    if (file_copy($file, $file_path, FILE_EXISTS_REPLACE)) {
+      // Flush image cache for this pic.
+      // imagecache_image_flush($file_path);  // uncomment this for image_cache pics
+      // Store image 
+      // AddThis uses absolute path 
+      global $base_url;
+      $file_path = $base_url .'/'. $file_path;
+      variable_set('addthis_image', $file_path);
+   }
+  }   
+
+  return $form;
+}
+
+
